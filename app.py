@@ -16,7 +16,7 @@ st.markdown("Upload gambar kerja (Arsitektur/MEP/Struktur) dalam format PDF untu
 with st.sidebar:
     st.header("Konfigurasi")
     
-    # Cek API Key
+    # Cek apakah API Key ada di Secrets Streamlit atau Input Manual
     if 'GOOGLE_API_KEY' in st.secrets:
         api_key = st.secrets['GOOGLE_API_KEY']
         st.success("✅ API Key terdeteksi dari sistem.")
@@ -26,17 +26,17 @@ with st.sidebar:
              st.success("✅ API Key dimasukkan manual.")
 
     st.markdown("---")
-    # FITUR DEBUGGING: Tombol untuk melihat model apa yang tersedia bagi user
+    # FITUR DEBUG: Cek Model apa yang tersedia
     if st.button("🔍 Cek Model Tersedia"):
         if api_key:
             try:
                 genai.configure(api_key=api_key)
-                st.write("Daftar Model yang bisa Anda pakai:")
+                st.write("Model yang bisa Anda pakai:")
                 for m in genai.list_models():
                     if 'generateContent' in m.supported_generation_methods:
                         st.code(m.name)
             except Exception as e:
-                st.error(f"Error cek model: {e}")
+                st.error(f"Error Key: {e}")
         else:
             st.warning("Masukkan API Key dulu.")
 
@@ -56,8 +56,8 @@ def analyze_blueprint(api_key, file_path, file_mime_type):
         st.error("Gagal memproses file di sisi Google.")
         return None
 
-    # --- PERUBAHAN DI SINI: MENGGUNAKAN GEMINI 1.5 FLASH ---
-    # Flash lebih stabil dan cepat untuk API tier gratis/umum
+    # --- PERBAIKAN DI SINI: MENGGUNAKAN GEMINI 1.5 FLASH ---
+    # Model Flash lebih stabil untuk akun gratisan
     model = genai.GenerativeModel(model_name="gemini-1.5-flash")
 
     prompt = """
@@ -87,7 +87,7 @@ if uploaded_file is not None:
     if not api_key:
         st.warning("⚠️ Masukkan API Key di sidebar.")
     else:
-        # Simpan file sementara untuk diupload
+        # Simpan file sementara
         with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp_file:
             tmp_file.write(uploaded_file.getvalue())
             tmp_file_path = tmp_file.name
@@ -116,8 +116,8 @@ if uploaded_file is not None:
                             )
                     except json.JSONDecodeError:
                         st.error("Gagal membaca format data dari AI. Coba lagi atau gunakan gambar yang lebih jelas.")
-                        st.text("Raw Output AI:")
-                        st.write(json_result) # Tampilkan raw text untuk debugging
+                        st.text("Raw Output AI:") # Tampilkan text asli untuk debugging
+                        st.write(json_result)
             except Exception as e:
                 st.error(f"Terjadi kesalahan sistem: {e}")
             finally:
