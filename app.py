@@ -11,7 +11,7 @@ st.set_page_config(page_title="AI Estimator Bangunan", layout="wide")
 
 st.title("🏗️ AI Estimator: Baca Gambar Kerja & RAB")
 st.markdown("Upload gambar kerja (Arsitektur/MEP/Struktur) dalam format PDF untuk estimasi volume otomatis.")
-st.caption("Powered by Gemini 2.5 Pro")
+st.caption("Powered by Gemini 2.0 Flash")
 
 # --- SIDEBAR: KONFIGURASI API ---
 with st.sidebar:
@@ -42,9 +42,9 @@ def analyze_blueprint(api_key, file_path, file_mime_type):
         st.error("Gagal memproses file di sisi Google.")
         return None
 
-    # --- UPDATE MODEL: MENGGUNAKAN GEMINI 2.5 PRO ---
-    # Model ini dipilih dari daftar yang tersedia di akun Anda
-    model = genai.GenerativeModel(model_name="gemini-2.5-pro")
+    # --- BAGIAN PENTING: MENGGUNAKAN GEMINI 2.0 FLASH ---
+    # Kita menggunakan model yang PASTI ADA di daftar Anda
+    model = genai.GenerativeModel(model_name="gemini-2.0-flash")
 
     prompt = """
     Bertindaklah sebagai Senior Quantity Surveyor. Tugas Anda:
@@ -61,7 +61,7 @@ def analyze_blueprint(api_key, file_path, file_mime_type):
     ]
     """
 
-    with st.spinner('AI sedang menganalisis gambar dengan Gemini 2.5 Pro...'):
+    with st.spinner('AI sedang menganalisis gambar dengan Gemini 2.0 Flash...'):
         response = model.generate_content([sample_file, prompt])
         
     # Bersihkan response text agar menjadi valid JSON
