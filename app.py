@@ -11,12 +11,13 @@ st.set_page_config(page_title="AI Estimator Bangunan", layout="wide")
 
 st.title("🏗️ AI Estimator: Baca Gambar Kerja & RAB")
 st.markdown("Upload gambar kerja (Arsitektur/MEP/Struktur) dalam format PDF untuk estimasi volume otomatis.")
+st.caption("Powered by Gemini 2.5 Pro")
 
 # --- SIDEBAR: KONFIGURASI API ---
 with st.sidebar:
     st.header("Konfigurasi")
     
-    # Cek apakah API Key ada di Secrets Streamlit atau Input Manual
+    # Cek API Key
     if 'GOOGLE_API_KEY' in st.secrets:
         api_key = st.secrets['GOOGLE_API_KEY']
         st.success("✅ API Key terdeteksi dari sistem.")
@@ -25,21 +26,6 @@ with st.sidebar:
         if api_key:
              st.success("✅ API Key dimasukkan manual.")
 
-    st.markdown("---")
-    # FITUR DEBUG: Cek Model apa yang tersedia
-    if st.button("🔍 Cek Model Tersedia"):
-        if api_key:
-            try:
-                genai.configure(api_key=api_key)
-                st.write("Model yang bisa Anda pakai:")
-                for m in genai.list_models():
-                    if 'generateContent' in m.supported_generation_methods:
-                        st.code(m.name)
-            except Exception as e:
-                st.error(f"Error Key: {e}")
-        else:
-            st.warning("Masukkan API Key dulu.")
-
 # --- FUNGSI UTAMA ---
 def analyze_blueprint(api_key, file_path, file_mime_type):
     genai.configure(api_key=api_key)
@@ -47,7 +33,7 @@ def analyze_blueprint(api_key, file_path, file_mime_type):
     with st.spinner('Mengupload file ke server AI...'):
         sample_file = genai.upload_file(path=file_path, display_name="Gambar Kerja")
         
-    # Tunggu file siap (looping check state)
+    # Tunggu file siap
     while sample_file.state.name == "PROCESSING":
         time.sleep(2)
         sample_file = genai.get_file(sample_file.name)
@@ -56,24 +42,26 @@ def analyze_blueprint(api_key, file_path, file_mime_type):
         st.error("Gagal memproses file di sisi Google.")
         return None
 
-    # --- PERBAIKAN DI SINI: MENGGUNAKAN GEMINI 1.5 FLASH ---
-    # Model Flash lebih stabil untuk akun gratisan
-    model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+    # --- UPDATE MODEL: MENGGUNAKAN GEMINI 2.5 PRO ---
+    # Model ini dipilih dari daftar yang tersedia di akun Anda
+    model = genai.GenerativeModel(model_name="gemini-2.5-pro")
 
     prompt = """
-    Anda adalah Quantity Surveyor (QS) AI ahli. Tugas anda:
-    1. Analisis gambar teknik konstruksi yang dilampirkan ini (Skala 1:100 pada A3).
-    2. Identifikasi elemen pekerjaan (misal: Dinding Bata, Plesteran, Titik Lampu, Stopkontak, Kolom Beton).
-    3. Lakukan estimasi kuantitas (Volume, Luas, atau Unit) berdasarkan visual.
+    Bertindaklah sebagai Senior Quantity Surveyor. Tugas Anda:
+    1. Analisis gambar teknik (PDF) yang dilampirkan.
+    2. Identifikasi elemen konstruksi visual (Dinding, Lantai, Plafon, Jendela, Pintu, MEP).
+    3. Lakukan "Take-off" atau perhitungan volume estimasi kasar berdasarkan proporsi visual gambar.
     
-    PENTING: Keluarkan jawaban HANYA dalam format JSON murni tanpa markdown (jangan pakai ```json), dengan struktur:
+    ATURAN PENTING:
+    - Jangan berikan narasi pengantar.
+    - Output HARUS berupa JSON valid array of objects.
+    - Struktur JSON:
     [
-        {"kategori": "Arsitektur", "item": "Dinding Bata Merah", "satuan": "m2", "estimasi_volume": 150, "catatan": "Asumsi tinggi 3m"},
-        {"kategori": "MEP", "item": "Titik Lampu", "satuan": "titik", "estimasi_volume": 10, "catatan": "-"}
+        {"kategori": "Arsitektur/Struktur/MEP", "item": "Nama Pekerjaan", "satuan": "m2/m3/unit", "estimasi_volume": 0, "catatan": "dasar perhitungan"}
     ]
     """
 
-    with st.spinner('AI sedang membaca gambar dan menghitung RAB...'):
+    with st.spinner('AI sedang menganalisis gambar dengan Gemini 2.5 Pro...'):
         response = model.generate_content([sample_file, prompt])
         
     # Bersihkan response text agar menjadi valid JSON
@@ -101,25 +89,28 @@ if uploaded_file is not None:
                         data = json.loads(json_result)
                         df = pd.DataFrame(data)
 
+                        st.success("Analisis Selesai!")
+                        
+                        # Tampilkan Tabel
                         st.subheader("📊 Hasil Rekapitulasi Volume")
                         st.dataframe(df, use_container_width=True)
 
+                        # Siapkan Excel
                         excel_file = "Estimasi_RAB.xlsx"
                         df.to_excel(excel_file, index=False)
 
                         with open(excel_file, "rb") as f:
                             st.download_button(
-                                label="📥 Download Laporan Excel",
+                                label="📥 Download Excel",
                                 data=f,
                                 file_name="Rekapitulasi_Estimasi_Biaya.xlsx",
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             )
                     except json.JSONDecodeError:
-                        st.error("Gagal membaca format data dari AI. Coba lagi atau gunakan gambar yang lebih jelas.")
-                        st.text("Raw Output AI:") # Tampilkan text asli untuk debugging
-                        st.write(json_result)
+                        st.error("Gagal format data. Output AI tidak valid JSON.")
+                        st.text_area("Raw Output:", json_result)
             except Exception as e:
-                st.error(f"Terjadi kesalahan sistem: {e}")
+                st.error(f"Terjadi kesalahan: {e}")
             finally:
                 if os.path.exists(tmp_file_path):
                     os.remove(tmp_file_path)
